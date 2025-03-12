@@ -10,6 +10,30 @@ import time
 from discoverse.envs import SimulatorBase
 from discoverse.utils.base_config import BaseConfig
 
+def get_camera_quaternion(camera_position, object_position):
+    """
+    计算相机看向物体的旋转四元数 (xyzw 格式)
+    
+    :param camera_position: np.array([x, y, z])，相机位置
+    :param object_position: np.array([x, y, z])，物体位置
+    :return: np.array([x, y, z, w])，相机旋转的四元数
+    """
+    # 计算相机的朝向向量（物体 - 相机）
+    forward_vector = np.array(object_position) - np.array(camera_position)
+    forward_vector /= np.linalg.norm(forward_vector)  # 归一化
+
+    # 定义参考的“前向”方向（Mujoco 期望的方向是世界坐标系的 -Z 轴）
+    world_forward = np.array([0, 0, -1])  
+
+    # 计算旋转矩阵，使 world_forward 旋转到 forward_vector
+    rotation_matrix = Rotation.from_rotvec(np.cross(world_forward, forward_vector) *
+                                    np.arccos(np.dot(world_forward, forward_vector)))
+
+    # 转换为四元数（Scipy 默认格式是 xyzw）
+    quaternion_xyzw = rotation_matrix.as_quat()
+
+    return quaternion_xyzw
+
 class AirbotPlayCfg(BaseConfig):
     mjcf_file_path = "mjcf/airbot_play_floor.xml"
     decimation     = 4
@@ -176,9 +200,17 @@ class AirbotPlayBase(SimulatorBase):
             
             # 修改相机位置
             new_camera_position = camera_position + np.array(changed_xyz)
+
+            object_name="bowl_pink"
+            obj_id = mujoco.mj_name2id(self.mj_model, mujoco.mjtObj.mjOBJ_BODY, object_name)
+            if obj_id == -1:
+                raise ValueError(f"Object '{object_name}' not found in the Mujoco model.")
+            object_position = self.mj_data.xpos[obj_id]
+
+            quat_xyzw=get_camera_quaternion(new_camera_position,object_position)
             
-            # 读取相机旋转四元数（无需计算 xyaxes）
-            quat_xyzw = self.mj_model.cam_quat[cam_id]
+            # # 读取相机旋转四元数（无需计算 xyaxes）
+            # quat_xyzw = self.mj_model.cam_quat[cam_id]
             
             print(f"Original Camera Position: {camera_position}")
             print(f"New Camera Position: {new_camera_position}")
