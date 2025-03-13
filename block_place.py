@@ -175,12 +175,16 @@ if __name__ == "__main__":
             action[i] = step_func(action[i], sim_node.target_control[i], move_speed * sim_node.joint_move_ratio[i] * sim_node.delta_t)
         action[6] = sim_node.target_control[6]
 
-        # if test_count % 10 == 0:  # 控制保存频率
-        #     image = sim_node.get_camera_image("testcamera")  # 获取图像
-        #     img_filename = f"{output_dir}/camera_image_{test_count}.png"
+################################################
+#########   XMY      ###########################
+#       prograss  rendering
+        if test_count%2 == 0 :  
+            image = sim_node.get_camera_image("testcamera")  
+            img_filename = f"{output_dir}/camera_image_{test_count}.png"
             
-        #     plt.imsave(img_filename, image)  # **同步保存，确保执行完毕**
-        #     print(f"Image saved: {img_filename}")  # 确保代码执行到这里
+            plt.imsave(img_filename, image)  
+            print(f"Image saved: {img_filename}")  
+        
 
         obs, _, _, _, _ = sim_node.step(action)
 
@@ -204,20 +208,19 @@ if __name__ == "__main__":
                 data_idx += 1
                 print("\r{:4}/{:4} ".format(data_idx, data_set_size), end="")
                 if data_idx >= data_set_size:
-                    # img=sim_node.get_camera_image("testcamera")
-                    # plt.imshow(img)
-                    # plt.axis("off")
-                    # plt.show()
-                    siu=0
-                    for i in np.arange(0,0.8,0.04):
-                        siu=siu+1
-                        changed_xmy=[i,0,0]
-                        img=sim_node.get_move_camera_image("testcamera",changed_xmy)
-                        img_filename = f"{output_dir}/camera_image_y{i:.2f}.png"
-                        plt.imsave(img_filename, img)
+                    # for i in np.arange(0,0.9,0.01):
+                    #     changed_xmy=[i,0,0]
+                    #     img=sim_node.get_move_camera_image("testcamera",changed_xmy)
+                    #     img_filename = f"{output_dir}/camera_image_X{i:.2f}.png"
+                    #     plt.imsave(img_filename, img)
+                    
+                    # for j in np.arange(0,0.6,0.01):
+                    #     changed_xmy=[0.9,0,j]
+                    #     img=sim_node.get_move_camera_image("testcamera",changed_xmy)
+                    #     img_filename = f"{output_dir}/camera_image_Z{j:.2f}.png"
+                    #     plt.imsave(img_filename, img)
                     print(test_count)
-                    print("########################")
-                    print("siuuuuuuuuuuuuuu:",siu)
+
                     break
             else:
                 print(f"{data_idx} Failed")
