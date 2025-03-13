@@ -133,7 +133,7 @@ class AirbotPlayBase(SimulatorBase):
 
     def get_camera_image(self, camera_name, width=640, height=480 ):
         
-        self.resetState()  
+        #self.resetState()  
 
         if self.config.use_gaussian_renderer:
             if not hasattr(self, "gs_renderer"):
@@ -150,8 +150,8 @@ class AirbotPlayBase(SimulatorBase):
             # 读取相机旋转四元数（无需计算 xyaxes）
             quat_xyzw = self.mj_model.cam_quat[cam_id]
             
-            print(f"Camera Position: {self.mj_model.cam_pos[cam_id]}")
-            print(f"Camera Quaternion: {self.mj_model.cam_quat[cam_id]}")
+            # print(f"Camera Position: {self.mj_model.cam_pos[cam_id]}")
+            # print(f"Camera Quaternion: {self.mj_model.cam_quat[cam_id]}")
 
             # 设置相机位置和方向
             self.gs_renderer.set_camera_pose(camera_position, quat_xyzw)
@@ -184,7 +184,7 @@ class AirbotPlayBase(SimulatorBase):
 
 #################################################
     def get_move_camera_image(self, camera_name, changed_xyz, width=640, height=480):
-        self.resetState()  
+        #self.resetState()  
         
         if self.config.use_gaussian_renderer:
             if not hasattr(self, "gs_renderer"):
@@ -212,9 +212,9 @@ class AirbotPlayBase(SimulatorBase):
             # # 读取相机旋转四元数（无需计算 xyaxes）
             # quat_xyzw = self.mj_model.cam_quat[cam_id]
             
-            print(f"Original Camera Position: {camera_position}")
-            print(f"New Camera Position: {new_camera_position}")
-            print(f"Camera Quaternion: {quat_xyzw}")
+            # print(f"Original Camera Position: {camera_position}")
+            # print(f"New Camera Position: {new_camera_position}")
+            # print(f"Camera Quaternion: {quat_xyzw}")
 
             # 设置相机位置和方向
             self.gs_renderer.set_camera_pose(new_camera_position, quat_xyzw)
