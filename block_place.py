@@ -16,8 +16,53 @@ from discoverse.envs.airbot_play_base import AirbotPlayCfg
 from discoverse.utils import get_body_tmat, get_site_tmat, step_func, SimpleStateMachine
 from discoverse.task_base import AirbotPlayTaskBase, recoder_airbot_play, copypy2
 
+#################
+###  XMY
 output_dir = 'output_images'
 test_count=0
+
+def get_random_camera_positions(arm_pose_center, num_samples=80, min_radius=0.3, max_radius=0.45):
+    """
+    生成围绕 arm_pose 上半球随机分布的相机位置
+    :param arm_pose_center: np.array([x, y, z])，机械臂的参考中心位置
+    :param num_samples: int，生成的相机位置数量
+    :param min_radius: float，最小相机距离
+    :param max_radius: float，最大相机距离
+    :return: List[np.array([x, y, z])]，相机位置列表
+    """
+    camera_positions = []
+    
+    for _ in range(num_samples):
+        # 随机相机到机械臂的距离
+        r = np.random.uniform(min_radius, max_radius)
+        
+        # 限制仰角 theta 在 [0, π/2]，确保相机在上半球
+        theta = np.random.uniform(0, np.pi / 2)
+        
+        # 采样方位角 phi（0 到 2π，完整的圆周）
+        phi = np.random.uniform(0, 2 * np.pi)
+        
+        # 计算相机位置 (x, y, z)
+        x = r * np.cos(phi) * np.sin(theta)
+        y = r * np.sin(phi) * np.sin(theta)
+        z = r * np.cos(theta)
+
+        # 确保相机在 `arm_pose` 之上（即 z 轴不低于机械臂）
+        if arm_pose_center[2] + z < arm_pose_center[2]:
+            z = abs(z)  # 取正值，防止相机位置低于机械臂
+        
+        # 计算全局相机位置
+        camera_pos = arm_pose_center + np.array([x, y, z])
+        camera_positions.append(camera_pos)
+
+    return camera_positions
+
+arm_pose_center = np.array([0.3,0.92,0.91])
+
+# 生成 80 个随机相机位置
+random_camera_positions = get_random_camera_positions(arm_pose_center, num_samples=80)
+
+##########################################################################################################
 
 class SimNode(AirbotPlayTaskBase):
     def __init__(self, config: AirbotPlayCfg):
@@ -182,12 +227,12 @@ if __name__ == "__main__":
 ################################################
 #########   XMY      ###########################
 #       prograss  rendering
-        if test_count%2 == 0 :  
-            image = sim_node.get_move_camera_image("testcamera")  
-            img_filename = f"{output_dir}/camera_image_{test_count}.png"
+        # if test_count%2 == 0 :  
+        #     image = sim_node.get_move_camera_image("testcamera",lookat_object_name="arm_pose")  
+        #     img_filename = f"{output_dir}/camera_image_{test_count}.png"
             
-            plt.imsave(img_filename, image)  
-            print(f"Image saved: {img_filename}")  
+        #     plt.imsave(img_filename, image)  
+        #     print(f"Image saved: {img_filename}")  
         
 
         obs, _, _, _, _ = sim_node.step(action)
@@ -217,12 +262,13 @@ if __name__ == "__main__":
                     #     img=sim_node.get_move_camera_image("testcamera",changed_xmy)
                     #     img_filename = f"{output_dir}/camera_image_X{i:.2f}.png"
                     #     plt.imsave(img_filename, img)
+
+                    for idx, cam_pos in enumerate(random_camera_positions):
+                        img = sim_node.get_move_camera_image(camera_name="testcamera", changed_xyz=cam_pos,lookat_object_name="arm_pose")
+                        img_filename = f"{output_dir}/camera_image_X{idx+1:.2f}.png"
+                        plt.imsave(img_filename, img)
+                        print(f"Captured Image {idx+1} from Position: {cam_pos}")
                     
-                    # for j in np.arange(0,0.6,0.01):
-                    #     changed_xmy=[0.9,0,j]
-                    #     img=sim_node.get_move_camera_image("testcamera",changed_xmy)
-                    #     img_filename = f"{output_dir}/camera_image_Z{j:.2f}.png"
-                    #     plt.imsave(img_filename, img)
                     print(test_count)
 
                     break

@@ -183,32 +183,35 @@ class AirbotPlayBase(SimulatorBase):
             return image
 
 #################################################
-    def get_move_camera_image(self, camera_name, changed_xyz=[-0.324,0.697,1.02], width=640, height=480,object_name="bowl_pink"):
+    def get_move_camera_image(self, camera_name, changed_xyz=[-0.324,0.697,1.02], width=640, height=480,lookat_object_name="bowl_pink"):
         #self.resetState()  
         
         if self.config.use_gaussian_renderer:
             if not hasattr(self, "gs_renderer"):
                 raise RuntimeError("Gaussian Renderer is not properly initialized.")
 
-            # 获取相机 ID
+            # 获取相机 ID 与初始相机位置
             cam_id = mujoco.mj_name2id(self.mj_model, mujoco.mjtObj.mjOBJ_CAMERA, camera_name)
             if cam_id == -1:
                 raise ValueError(f"Camera '{camera_name}' not found in the Mujoco model.")
 
-            # 读取相机初始位置
-            camera_position = np.array(self.mj_model.cam_pos[cam_id])
+            #camera_position = np.array(self.mj_model.cam_pos[cam_id])
             
             # 修改相机位置
             new_camera_position = np.array(changed_xyz)
-
-            obj_id = mujoco.mj_name2id(self.mj_model, mujoco.mjtObj.mjOBJ_BODY, object_name)
-            if obj_id == -1:
-                raise ValueError(f"Object '{object_name}' not found in the Mujoco model.")
-            object_position = self.mj_data.xpos[obj_id]
-
-            quat_xyzw=get_camera_quaternion(new_camera_position,object_position)
             
 
+            # 获取需要看向的物体的位置
+            obj_id = mujoco.mj_name2id(self.mj_model, mujoco.mjtObj.mjOBJ_BODY, lookat_object_name)
+            if obj_id == -1:
+                raise ValueError(f"Object '{lookat_object_name}' not found in the Mujoco model.")
+            lookat_object_position = self.mj_data.xpos[obj_id]
+
+            test_lookat_object_position=lookat_object_position+np.array([0,0,0.2])
+
+            # 计算从相机看向物体的四元组
+            quat_xyzw=get_camera_quaternion(new_camera_position,test_lookat_object_position)
+            
             # 设置相机位置和方向
             self.gs_renderer.set_camera_pose(new_camera_position, quat_xyzw)
 
