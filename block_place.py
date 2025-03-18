@@ -54,8 +54,12 @@ cfg.gs_model_dict["drawer_2"]    = "hinge/drawer_2.ply"
 cfg.gs_model_dict["bowl_pink"]   = "object/bowl_pink.ply"
 cfg.gs_model_dict["block_green"] = "object/block_green.ply"
 
+# #  添加物体
+# cfg.gs_model_dict["block_red"] = "object/block_red.ply"
+
 cfg.mjcf_file_path = "mjcf/tasks_airbot_play/block_place.xml"
 cfg.obj_list     = ["drawer_1", "drawer_2", "bowl_pink", "block_green"]
+# cfg.obj_list     = ["drawer_1", "drawer_2", "bowl_pink", "block_green","block_red"]
 cfg.timestep     = 1/240
 cfg.decimation   = 4
 cfg.sync         = True
@@ -179,7 +183,7 @@ if __name__ == "__main__":
 #########   XMY      ###########################
 #       prograss  rendering
         if test_count%2 == 0 :  
-            image = sim_node.get_camera_image("testcamera")  
+            image = sim_node.get_move_camera_image("testcamera")  
             img_filename = f"{output_dir}/camera_image_{test_count}.png"
             
             plt.imsave(img_filename, image)  

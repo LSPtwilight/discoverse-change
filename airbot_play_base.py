@@ -183,7 +183,7 @@ class AirbotPlayBase(SimulatorBase):
             return image
 
 #################################################
-    def get_move_camera_image(self, camera_name, changed_xyz, width=640, height=480):
+    def get_move_camera_image(self, camera_name, changed_xyz=[-0.324,0.697,1.02], width=640, height=480,object_name="bowl_pink"):
         #self.resetState()  
         
         if self.config.use_gaussian_renderer:
@@ -199,9 +199,8 @@ class AirbotPlayBase(SimulatorBase):
             camera_position = np.array(self.mj_model.cam_pos[cam_id])
             
             # 修改相机位置
-            new_camera_position = camera_position + np.array(changed_xyz)
+            new_camera_position = np.array(changed_xyz)
 
-            object_name="bowl_pink"
             obj_id = mujoco.mj_name2id(self.mj_model, mujoco.mjtObj.mjOBJ_BODY, object_name)
             if obj_id == -1:
                 raise ValueError(f"Object '{object_name}' not found in the Mujoco model.")
@@ -209,12 +208,6 @@ class AirbotPlayBase(SimulatorBase):
 
             quat_xyzw=get_camera_quaternion(new_camera_position,object_position)
             
-            # # 读取相机旋转四元数（无需计算 xyaxes）
-            # quat_xyzw = self.mj_model.cam_quat[cam_id]
-            
-            # print(f"Original Camera Position: {camera_position}")
-            # print(f"New Camera Position: {new_camera_position}")
-            # print(f"Camera Quaternion: {quat_xyzw}")
 
             # 设置相机位置和方向
             self.gs_renderer.set_camera_pose(new_camera_position, quat_xyzw)
