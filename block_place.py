@@ -21,15 +21,8 @@ from discoverse.task_base import AirbotPlayTaskBase, recoder_airbot_play, copypy
 output_dir = 'output_images'
 test_count=0
 
-def get_random_camera_positions(arm_pose_center, num_samples=80, min_radius=0.3, max_radius=0.45):
-    """
-    生成围绕 arm_pose 上半球随机分布的相机位置
-    :param arm_pose_center: np.array([x, y, z])，机械臂的参考中心位置
-    :param num_samples: int，生成的相机位置数量
-    :param min_radius: float，最小相机距离
-    :param max_radius: float，最大相机距离
-    :return: List[np.array([x, y, z])]，相机位置列表
-    """
+def get_random_camera_positions(arm_pose_center, num_samples=80, min_radius=0.15, max_radius=0.22):
+    
     camera_positions = []
     
     for _ in range(num_samples):
@@ -37,7 +30,7 @@ def get_random_camera_positions(arm_pose_center, num_samples=80, min_radius=0.3,
         r = np.random.uniform(min_radius, max_radius)
         
         # 限制仰角 theta 在 [0, π/2]，确保相机在上半球
-        theta = np.random.uniform(0, np.pi / 2)
+        theta = np.random.uniform(0, np.pi / 3)
         
         # 采样方位角 phi（0 到 2π，完整的圆周）
         phi = np.random.uniform(0, 2 * np.pi)
@@ -57,9 +50,7 @@ def get_random_camera_positions(arm_pose_center, num_samples=80, min_radius=0.3,
 
     return camera_positions
 
-arm_pose_center = np.array([0.3,0.92,0.91])
-
-# 生成 80 个随机相机位置
+arm_pose_center = np.array([-0.34, 0.90 ,0.7195])
 random_camera_positions = get_random_camera_positions(arm_pose_center, num_samples=80)
 
 ##########################################################################################################
@@ -71,18 +62,19 @@ class SimNode(AirbotPlayTaskBase):
 
     def domain_randomization(self):
         # 随机 方块位置
-        self.mj_data.qpos[self.nj+1+0] += 2.*(np.random.random() - 0.5) * 0.12
-        self.mj_data.qpos[self.nj+1+1] += 2.*(np.random.random() - 0.5) * 0.08
+        # self.mj_data.qpos[self.nj+1+0] += 2.*(np.random.random() - 0.5) * 0.12
+        # self.mj_data.qpos[self.nj+1+1] += 2.*(np.random.random() - 0.5) * 0.08
 
-        # 随机 杯子位置
-        self.mj_data.qpos[self.nj+1+7+0] += 2.*(np.random.random() - 0.5) * 0.1
-        self.mj_data.qpos[self.nj+1+7+1] += 2.*(np.random.random() - 0.5) * 0.05
+        # # 随机 杯子位置
+        # self.mj_data.qpos[self.nj+1+7+0] += 2.*(np.random.random() - 0.5) * 0.1
+        # self.mj_data.qpos[self.nj+1+7+1] += 2.*(np.random.random() - 0.5) * 0.05
 
-        # # 随机 eye side 视角
+        # 随机 eye side 视角
         # camera = self.mj_model.camera("eye_side")
         # camera.pos[:] = self.camera_0_pose[0] + 2.*(np.random.random(3) - 0.5) * 0.05
         # euler = Rotation.from_quat(self.camera_0_pose[1][[1,2,3,0]]).as_euler("xyz", degrees=False) + 2.*(np.random.random(3) - 0.5) * 0.05
         # camera.quat[:] = Rotation.from_euler("xyz", euler, degrees=False).as_quat()[[3,0,1,2]]
+        print("1")
 
     def check_success(self):
         tmat_block = get_body_tmat(self.mj_data, "block_green")
@@ -100,11 +92,11 @@ cfg.gs_model_dict["bowl_pink"]   = "object/bowl_pink.ply"
 cfg.gs_model_dict["block_green"] = "object/block_green.ply"
 
 # #  添加物体
-# cfg.gs_model_dict["block_red"] = "object/block_red.ply"
+cfg.gs_model_dict["GGbond"] = "object/GGbond.ply"
 
 cfg.mjcf_file_path = "mjcf/tasks_airbot_play/block_place.xml"
-cfg.obj_list     = ["drawer_1", "drawer_2", "bowl_pink", "block_green"]
-# cfg.obj_list     = ["drawer_1", "drawer_2", "bowl_pink", "block_green","block_red"]
+# cfg.obj_list     = ["drawer_1", "drawer_2", "bowl_pink", "block_green"]
+cfg.obj_list     = ["drawer_1", "drawer_2", "bowl_pink", "block_green","GGbond"]
 cfg.timestep     = 1/240
 cfg.decimation   = 4
 cfg.sync         = True
@@ -255,19 +247,22 @@ if __name__ == "__main__":
                     process_list.append(seg_process)
 
                 data_idx += 1
+                ori_cam_pos=np.array([-0.924,0.617,1.42])
                 print("\r{:4}/{:4} ".format(data_idx, data_set_size), end="")
                 if data_idx >= data_set_size:
-                    # for i in np.arange(0,0.9,0.01):
-                    #     changed_xmy=[i,0,0]
-                    #     img=sim_node.get_move_camera_image("testcamera",changed_xmy)
-                    #     img_filename = f"{output_dir}/camera_image_X{i:.2f}.png"
-                    #     plt.imsave(img_filename, img)
+                    for i in np.arange(0,0.9,0.05):
+                        for j in np.arange(0,0.6,0.04):
+                            cam_pos = ori_cam_pos + np.array([i, 0, -j])
+                            img = sim_node.get_move_camera_image(camera_name="testcamera", changed_xyz=cam_pos,lookat_object_name="GGbond")
+                            img_filename = f"{output_dir}/camera_image_X{i:.2f}_Y{j:.2f}.png"
+                            print("i=",i," j=",j)
+                            plt.imsave(img_filename, img)
 
-                    for idx, cam_pos in enumerate(random_camera_positions):
-                        img = sim_node.get_move_camera_image(camera_name="testcamera", changed_xyz=cam_pos,lookat_object_name="arm_pose")
-                        img_filename = f"{output_dir}/camera_image_X{idx+1:.2f}.png"
-                        plt.imsave(img_filename, img)
-                        print(f"Captured Image {idx+1} from Position: {cam_pos}")
+                    # for idx, cam_pos in enumerate(random_camera_positions):
+                    #     img = sim_node.get_move_camera_image(camera_name="testcamera", changed_xyz=cam_pos,lookat_object_name="GGbond")
+                    #     img_filename = f"{output_dir}/camera_image_X{idx+1:.2f}.png"
+                    #     plt.imsave(img_filename, img)
+                    #     print(f"Captured Image {idx+1} from Position: {cam_pos}")
                     
                     print(test_count)
 

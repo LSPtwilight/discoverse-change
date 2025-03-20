@@ -207,7 +207,7 @@ class AirbotPlayBase(SimulatorBase):
                 raise ValueError(f"Object '{lookat_object_name}' not found in the Mujoco model.")
             lookat_object_position = self.mj_data.xpos[obj_id]
 
-            test_lookat_object_position=lookat_object_position+np.array([0,0,0.2])
+            test_lookat_object_position=lookat_object_position+np.array([-0.05,0,0.1])
 
             # 计算从相机看向物体的四元组
             quat_xyzw=get_camera_quaternion(new_camera_position,test_lookat_object_position)
