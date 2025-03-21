@@ -225,6 +225,37 @@ class AirbotPlayBase(SimulatorBase):
             
             return image
     
+    def get_camera_image_direct(self, camera_name, changed_xyz=[-0.324, 0.697, 1.02], lookat_position=[0, 0, 0], width=640, height=480):
+        # 确保 Gaussian Renderer 被正确启用
+        if self.config.use_gaussian_renderer:
+            if not hasattr(self, "gs_renderer"):
+                raise RuntimeError("Gaussian Renderer is not properly initialized.")
+
+            # 获取相机 ID
+            cam_id = mujoco.mj_name2id(self.mj_model, mujoco.mjtObj.mjOBJ_CAMERA, camera_name)
+            if cam_id == -1:
+                raise ValueError(f"Camera '{camera_name}' not found in the Mujoco model.")
+
+            # 设置新的相机位置
+            new_camera_position = np.array(changed_xyz)
+            
+            # 计算相机朝向（四元数）
+            quat_xyzw = get_camera_quaternion(new_camera_position, np.array(lookat_position))
+            
+            # 设置相机位置和方向
+            self.gs_renderer.set_camera_pose(new_camera_position, quat_xyzw)
+
+            # 设置相机视野（FOV）
+            fovy_radians = np.deg2rad(self.mj_model.cam_fovy[cam_id])
+            self.gs_renderer.set_camera_fovy(fovy_radians)
+
+            # 渲染图像
+            image = self.gs_renderer.render(render_depth=False)
+            print(f"[Gaussian Renderer] Captured image from camera '{camera_name}' with resolution ({width}x{height})")
+
+            return image
+
+    
     def close(self):
         # 销毁渲染器上下文
         if hasattr(self, "render_context"):
