@@ -4,7 +4,7 @@ from scipy.spatial.transform import Rotation
 import mujoco.viewer
 import xml.etree.ElementTree as ET
 import matplotlib.pyplot as plt
-
+import json
 import os
 import shutil
 import argparse
@@ -21,37 +21,40 @@ from discoverse.task_base import AirbotPlayTaskBase, recoder_airbot_play, copypy
 output_dir = 'output_images'
 test_count=0
 
-def get_random_camera_positions(arm_pose_center, num_samples=80, min_radius=0.15, max_radius=0.22):
+def get_random_camera_positions(arm_pose_center, num_samples=80, min_radius=0.15, max_radius=0.22, min_z=0.3):
+    """
+    均匀分布相机在上半球（避免靠近赤道）
     
+    :param arm_pose_center: np.array([x, y, z])
+    :param num_samples: 要生成的相机数
+    :param min_radius: 最小半径（距离中心）
+    :param max_radius: 最大半径
+    :param min_z: 单位球面 z 的下限，用于避免相机太低（z ∈ [min_z, 1]）
+    :return: List[np.array([x, y, z])]
+    """
     camera_positions = []
-    
-    for _ in range(num_samples):
-        # 随机相机到机械臂的距离
-        r = np.random.uniform(min_radius, max_radius)
-        
-        # 限制仰角 theta 在 [0, π/2]，确保相机在上半球
-        theta = np.random.uniform(0, np.pi / 3)
-        
-        # 采样方位角 phi（0 到 2π，完整的圆周）
-        phi = np.random.uniform(0, 2 * np.pi)
-        
-        # 计算相机位置 (x, y, z)
-        x = r * np.cos(phi) * np.sin(theta)
-        y = r * np.sin(phi) * np.sin(theta)
-        z = r * np.cos(theta)
 
-        # 确保相机在 `arm_pose` 之上（即 z 轴不低于机械臂）
-        if arm_pose_center[2] + z < arm_pose_center[2]:
-            z = abs(z)  # 取正值，防止相机位置低于机械臂
-        
-        # 计算全局相机位置
+    for _ in range(num_samples):
+        # 均匀采样 z（控制采样范围在上半球的靠上区域）
+        z_unit = np.random.uniform(min_z, 1.0)
+        phi = np.random.uniform(0, 2 * np.pi)
+        r_unit = np.sqrt(1 - z_unit ** 2)
+
+        # 随机半径（控制相机远近）
+        radius = np.random.uniform(min_radius, max_radius)
+
+        # 转为笛卡尔坐标
+        x = radius * r_unit * np.cos(phi)
+        y = radius * r_unit * np.sin(phi)
+        z = radius * z_unit
+
         camera_pos = arm_pose_center + np.array([x, y, z])
         camera_positions.append(camera_pos)
 
     return camera_positions
 
 arm_pose_center = np.array([-0.34, 0.90 ,0.7195])
-random_camera_positions = get_random_camera_positions(arm_pose_center, num_samples=80)
+random_camera_positions = get_random_camera_positions(arm_pose_center, num_samples=100)
 
 ##########################################################################################################
 
@@ -250,22 +253,38 @@ if __name__ == "__main__":
                 ori_cam_pos=np.array([-0.924,0.617,1.42])
                 print("\r{:4}/{:4} ".format(data_idx, data_set_size), end="")
                 if data_idx >= data_set_size:
-                    for i in np.arange(0,0.9,0.05):
-                        for j in np.arange(0,0.6,0.04):
-                            cam_pos = ori_cam_pos + np.array([i, 0, -j])
-                            img = sim_node.get_move_camera_image(camera_name="testcamera", changed_xyz=cam_pos,lookat_object_name="GGbond")
-                            img_filename = f"{output_dir}/camera_image_X{i:.2f}_Y{j:.2f}.png"
-                            print("i=",i," j=",j)
+
+                    if data_idx >= data_set_size:
+                        cameras_info = []
+                        
+                        for idx, cam_pos in enumerate(random_camera_positions):
+                            img, cam_pos, quat_xyzw = sim_node.get_camera_image_direct(
+                                camera_name="testcamera", 
+                                changed_xyz=cam_pos,
+                                lookat_position=[-0.38, 0.90, 0.7845]
+                            )
+                            input_dir = os.path.join(output_dir, "input")
+                            os.makedirs(input_dir, exist_ok=True)  # 如果不存在就创建
+                            
+                            # 保存图片
+                            img_filename = f"{output_dir}/input/image{idx}.png"  # 统一使用image{i}格式
                             plt.imsave(img_filename, img)
-
-                    # for idx, cam_pos in enumerate(random_camera_positions):
-                    #     img = sim_node.get_move_camera_image(camera_name="testcamera", changed_xyz=cam_pos,lookat_object_name="GGbond")
-                    #     img_filename = f"{output_dir}/camera_image_X{idx+1:.2f}.png"
-                    #     plt.imsave(img_filename, img)
-                    #     print(f"Captured Image {idx+1} from Position: {cam_pos}")
-                    
-                    print(test_count)
-
+                            print(f"Captured Image {idx} from Position: {cam_pos}")
+                            
+                            # 收集相机信息
+                            camera_data = {
+                                "cam_pos": cam_pos.tolist() if hasattr(cam_pos, 'tolist') else list(cam_pos),
+                                "image_name": f"image{idx}.png",
+                                "quat_xyzw": quat_xyzw.tolist() if hasattr(quat_xyzw, 'tolist') else list(quat_xyzw)
+                            }
+                            cameras_info.append(camera_data)
+                        
+                        # 保存JSON文件
+                    json_filename = os.path.join(output_dir, "mujoco_cam_infos.json")
+                    with open(json_filename, 'w') as f:
+                        json.dump({"cameras": cameras_info}, f, indent=4)
+                        
+                    print(f"Saved camera info to {json_filename}")
                     break
             else:
                 print(f"{data_idx} Failed")
