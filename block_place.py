@@ -9,6 +9,8 @@ import os
 import shutil
 import argparse
 import multiprocessing as mp
+import imageio
+import cv2
 
 from discoverse.airbot_play import AirbotPlayFIK
 from discoverse import DISCOVERSE_ROOT_DIR, DISCOVERSE_ASSERT_DIR
@@ -54,7 +56,7 @@ def get_random_camera_positions(arm_pose_center, num_samples=80, min_radius=0.15
     return camera_positions
 
 arm_pose_center = np.array([-0.34, 0.90 ,0.7195])
-random_camera_positions = get_random_camera_positions(arm_pose_center, num_samples=100)
+random_camera_positions = get_random_camera_positions(arm_pose_center, num_samples=120)
 
 ##########################################################################################################
 
@@ -255,23 +257,42 @@ if __name__ == "__main__":
                 if data_idx >= data_set_size:
 
                     if data_idx >= data_set_size:
+
+                        #### XMY #################
                         cameras_info = []
-                        
+                        image_RBG_dir   = os.path.join(output_dir, "input")
+                        image_depth_dir = os.path.join(output_dir, "depth")
+                        depth_png_dir = os.path.join(output_dir, "depth_png")
+                        os.makedirs(image_RBG_dir, exist_ok=True) 
+                        os.makedirs(image_depth_dir, exist_ok=True) 
+                        os.makedirs(depth_png_dir, exist_ok=True)
+
+                        #### main loop #################                        
                         for idx, cam_pos in enumerate(random_camera_positions):
-                            img, cam_pos, quat_xyzw = sim_node.get_camera_image_direct(
+
+                            print("get image number:",idx)
+                            ##########
+                            ## get RGB image 
+                            img_RGB, cam_pos, quat_xyzw = sim_node.get_camera_image_direct(
                                 camera_name="testcamera", 
                                 changed_xyz=cam_pos,
                                 lookat_position=[-0.38, 0.90, 0.7845]
                             )
-                            input_dir = os.path.join(output_dir, "input")
-                            os.makedirs(input_dir, exist_ok=True)  # 如果不存在就创建
+
+                            ## get depth image
+                            img_depth, _ , _ = sim_node.get_camera_depth_direct(
+                                camera_name="testcamera", 
+                                changed_xyz=cam_pos,
+                                lookat_position=[-0.38, 0.90, 0.7845]
+                            )
+
+                            ## save # format name : image{i}
+                            img_RGB_filename = f"{output_dir}/input/image{idx}.png"  
+                            img_depth_filename = f"{output_dir}/depth/image{idx}.npy" 
+                            plt.imsave(img_RGB_filename, img_RGB)
+                            np.save(img_depth_filename, img_depth)
                             
-                            # 保存图片
-                            img_filename = f"{output_dir}/input/image{idx}.png"  # 统一使用image{i}格式
-                            plt.imsave(img_filename, img)
-                            print(f"Captured Image {idx} from Position: {cam_pos}")
-                            
-                            # 收集相机信息
+                            ## camera data collect 
                             camera_data = {
                                 "cam_pos": cam_pos.tolist() if hasattr(cam_pos, 'tolist') else list(cam_pos),
                                 "image_name": f"image{idx}.png",
@@ -279,12 +300,29 @@ if __name__ == "__main__":
                             }
                             cameras_info.append(camera_data)
                         
-                        # 保存JSON文件
+                    ## save json of camera info
                     json_filename = os.path.join(output_dir, "mujoco_cam_infos.json")
                     with open(json_filename, 'w') as f:
                         json.dump({"cameras": cameras_info}, f, indent=4)
-                        
                     print(f"Saved camera info to {json_filename}")
+
+                    ## get depth image
+                    for fname in os.listdir(image_depth_dir):
+                        if fname.endswith(".npy"):
+                            npy_path = os.path.join(image_depth_dir, fname)
+                            depth = np.load(npy_path)  # 原始 float32 深度
+
+                            # 转换为 16-bit PNG 图像
+                            depth_mm = (depth * 1000).astype(np.uint16)
+
+                            # 保存为 PNG，改文件名为 image{i}.png（和原 RGB 对应）
+                            idx = os.path.splitext(fname)[0].replace("image", "")
+                            png_name = f"image{idx}.png"
+                            png_path = os.path.join(depth_png_dir, png_name)
+                            cv2.imwrite(png_path, depth_mm)
+
+                    print(f"Converted npy -> png")                    
+                        
                     break
             else:
                 print(f"{data_idx} Failed")

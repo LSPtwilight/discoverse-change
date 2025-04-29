@@ -33,6 +33,11 @@ def get_camera_quaternion(camera_position, object_position):
     quaternion_xyzw = rotation_matrix.as_quat()
 
     return quaternion_xyzw
+#################################################################################
+#################################################################################
+
+
+
 
 class AirbotPlayCfg(BaseConfig):
     mjcf_file_path = "mjcf/airbot_play_floor.xml"
@@ -131,99 +136,6 @@ class AirbotPlayBase(SimulatorBase):
     def getReward(self):
         return None
 
-    def get_camera_image(self, camera_name, width=640, height=480 ):
-        
-        #self.resetState()  
-
-        if self.config.use_gaussian_renderer:
-            if not hasattr(self, "gs_renderer"):
-                raise RuntimeError("Gaussian Renderer is not properly initialized.")
-
-            # 获取相机 ID
-            cam_id = mujoco.mj_name2id(self.mj_model, mujoco.mjtObj.mjOBJ_CAMERA, camera_name)
-            if cam_id == -1:
-                raise ValueError(f"Camera '{camera_name}' not found in the Mujoco model.")
-
-            # 读取相机位置
-            camera_position = self.mj_model.cam_pos[cam_id]
-
-            # 读取相机旋转四元数（无需计算 xyaxes）
-            quat_xyzw = self.mj_model.cam_quat[cam_id]
-            
-            # print(f"Camera Position: {self.mj_model.cam_pos[cam_id]}")
-            # print(f"Camera Quaternion: {self.mj_model.cam_quat[cam_id]}")
-
-            # 设置相机位置和方向
-            self.gs_renderer.set_camera_pose(camera_position, quat_xyzw)
-
-            # 获取相机的视野（FOV）并转换为弧度
-            fovy_radians = np.deg2rad(self.mj_model.cam_fovy[cam_id])
-            self.gs_renderer.set_camera_fovy(fovy_radians)
-
-            # 渲染图像
-            image = self.gs_renderer.render(render_depth=False)
-            print(f"[Gaussian Renderer] Captured image from camera '{camera_name}' with resolution ({width}x{height})")
-            return image
-        
-        #  Mujoco 渲染
-        else:
-            if not hasattr(self, "render_context"):
-                self.render_context = mujoco.Renderer(self.mj_model, width, height)
-
-            cam_id = mujoco.mj_name2id(self.mj_model, mujoco.mjtObj.mjOBJ_CAMERA, camera_name)
-            if cam_id == -1:
-                raise ValueError(f"Camera '{camera_name}' not found in the Mujoco model.")
-
-            # 读取相机的位置信息
-            camera = self.mj_model.camera(cam_id)
-            print(f"[Mujoco Renderer] Using camera '{camera_name}' - Position: {camera.pos}, Quaternion: {camera.quat}")
-
-            self.render_context.update_scene(self.mj_data, camera=camera_name)
-            image = self.render_context.render()
-            return image
-
-#################################################
-    def get_move_camera_image(self, camera_name, changed_xyz=[-0.324,0.697,1.02], width=640, height=480,lookat_object_name="bowl_pink"):
-        #self.resetState()  
-        
-        if self.config.use_gaussian_renderer:
-            if not hasattr(self, "gs_renderer"):
-                raise RuntimeError("Gaussian Renderer is not properly initialized.")
-
-            # 获取相机 ID 与初始相机位置
-            cam_id = mujoco.mj_name2id(self.mj_model, mujoco.mjtObj.mjOBJ_CAMERA, camera_name)
-            if cam_id == -1:
-                raise ValueError(f"Camera '{camera_name}' not found in the Mujoco model.")
-
-            #camera_position = np.array(self.mj_model.cam_pos[cam_id])
-            
-            # 修改相机位置
-            new_camera_position = np.array(changed_xyz)
-            
-
-            # 获取需要看向的物体的位置
-            obj_id = mujoco.mj_name2id(self.mj_model, mujoco.mjtObj.mjOBJ_BODY, lookat_object_name)
-            if obj_id == -1:
-                raise ValueError(f"Object '{lookat_object_name}' not found in the Mujoco model.")
-            lookat_object_position = self.mj_data.xpos[obj_id]
-
-            test_lookat_object_position=lookat_object_position+np.array([-0.05,0,0.1])
-
-            # 计算从相机看向物体的四元组
-            quat_xyzw=get_camera_quaternion(new_camera_position,test_lookat_object_position)
-            
-            # 设置相机位置和方向
-            self.gs_renderer.set_camera_pose(new_camera_position, quat_xyzw)
-
-            # 获取相机的视野（FOV）并转换为弧度
-            fovy_radians = np.deg2rad(self.mj_model.cam_fovy[cam_id])
-            self.gs_renderer.set_camera_fovy(fovy_radians)
-
-            # 渲染图像
-            image = self.gs_renderer.render(render_depth=False)
-            print(f"[Gaussian Renderer] Captured image from camera '{camera_name}' with resolution ({width}x{height})")
-            
-            return image
     
     def get_camera_image_direct(self, camera_name, changed_xyz=[-0.324, 0.697, 1.02], lookat_position=[0, 0, 0], width=640, height=480):
         # 确保 Gaussian Renderer 被正确启用
@@ -251,9 +163,40 @@ class AirbotPlayBase(SimulatorBase):
 
             # 渲染图像
             image = self.gs_renderer.render(render_depth=False)
-            print(f"[Gaussian Renderer] Captured image from camera '{camera_name}' with resolution ({width}x{height})")
+            #print(f"[Gaussian Renderer] Captured image from camera '{camera_name}' with resolution ({width}x{height})")
 
-            return image
+            return image,new_camera_position,quat_xyzw
+        
+    def get_camera_depth_direct(self, camera_name, changed_xyz=[-0.324, 0.697, 1.02], lookat_position=[0, 0, 0], width=640, height=480):
+        # 确保 Gaussian Renderer 被正确启用
+        if self.config.use_gaussian_renderer:
+            if not hasattr(self, "gs_renderer"):
+                raise RuntimeError("Gaussian Renderer is not properly initialized.")
+
+            # 获取相机 ID
+            cam_id = mujoco.mj_name2id(self.mj_model, mujoco.mjtObj.mjOBJ_CAMERA, camera_name)
+            if cam_id == -1:
+                raise ValueError(f"Camera '{camera_name}' not found in the Mujoco model.")
+
+            # 设置新的相机位置
+            new_camera_position = np.array(changed_xyz)
+            
+            # 计算相机朝向（四元数）
+            quat_xyzw = get_camera_quaternion(new_camera_position, np.array(lookat_position))
+            
+            # 设置相机位置和方向
+            self.gs_renderer.set_camera_pose(new_camera_position, quat_xyzw)
+
+            # 设置相机视野（FOV）
+            fovy_radians = np.deg2rad(self.mj_model.cam_fovy[cam_id])
+            self.gs_renderer.set_camera_fovy(fovy_radians)
+
+            # 渲染图像
+            image_depth = self.gs_renderer.render(render_depth=True)
+            #print(f"[Gaussian Renderer] Captured image from camera '{camera_name}' with resolution ({width}x{height})")
+
+            return image_depth,new_camera_position,quat_xyzw
+
 
     
     def close(self):
@@ -323,14 +266,14 @@ if __name__ == "__main__":
 
 
 ###################################################################
-    # 获取自定义相机的图片
-    img = exec_node.get_camera_image("custom_camera")
+    # # 获取自定义相机的图片
+    # img = exec_node.get_camera_image("custom_camera")
 
-    ######################
-    # 显示图片
-    plt.imshow(img)
-    plt.axis("off")
-    plt.show()
+    # ######################
+    # # 显示图片
+    # plt.imshow(img)
+    # plt.axis("off")
+    # plt.show()
 
     obs = exec_node.reset()
     action = exec_node.init_joint_pose[:exec_node.nj]
